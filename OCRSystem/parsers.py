@@ -1,4 +1,6 @@
+import json
 import uuid
+from trp import Document
 
 class TextractParser:
     def extract_text(self, response, extract_by="WORD"):
@@ -51,9 +53,9 @@ class TextractParser:
     def get_key_map(self, response, word_map):
         key_map = {}
         for block in response["Blocks"]:
-            if block["BlockType"] == "KEY_VALUE_SET" and "KEY" in block["EntityTypes"]:
+            if block["BlockType"] == "KEY_.text_SET" and "KEY" in block["EntityTypes"]:
                 for relation in block["Relationships"]:
-                    if relation["Type"] == "VALUE":
+                    if relation["Type"] == ".text":
                         value_id = relation["Ids"]
                     if relation["Type"] == "CHILD":
                         v = " ".join([word_map[i] for i in relation["Ids"]])
@@ -87,8 +89,95 @@ class TextractParser:
         value_map = self.get_value_map(response, word_map)
         final_map = self.get_kv_map(key_map, value_map)
 
-        return {
-            "text": self.extract_text(response),
-            "table": table_info,
-            "key_value_map": final_map
+        doc = Document(response)
+        
+        keys = [
+            "ART/OBRA SOCIAL:",
+            "PACIENTE:",
+            "DOMICILIO:",
+            "LOCALIDAD:",
+            "PROFESIONAL:",
+            "ESPECIALIDAD:",
+            "No:",
+            "N°:",
+            "MATRICULA:"
+        ]
+        
+        headers = [
+            "FECHA",
+            "HORA",
+            "ENTRADA",
+            "SALIDA"
+        ]
+
+        extracted_data = {
+            "paciente": {
+                "nombre": None,
+                "obra_social": None,
+                "num_obra_social": None,
+                "localidad": None,
+                "domicilio": None
+            },
+            "profesional": {
+                "nombre": None,
+                "especialidad": None,
+                "matricula": None
+            },
+            "planilla": [
+
+            ]
         }
+
+
+        for page in doc.pages:
+
+            # for field in page.form.fields:
+            #     print("Key: {}, Value: {}".format(field.key, field.value))
+            
+            for key in keys:
+                field = page.form.getFieldByKey(key)
+                if (field):
+                    value = field.value.text if field.value is not None else None
+
+                    match key:
+                        case "PACIENTE:":
+                            extracted_data["paciente"]["nombre"] = value
+                        case "ART/OBRA SOCIAL:" | "ART/OBRA SOCIAL":
+                            extracted_data["paciente"]["obra_social"] = value
+                        case "No:" | "N°:":
+                            extracted_data["paciente"]["num_obra_social"] = value
+                        case "LOCALIDAD:":
+                            extracted_data["paciente"]["localidad"] = value
+                        case "DOMICILIO:":
+                            extracted_data["paciente"]["domicilio"] = value
+                        case "PROFESIONAL:":
+                            extracted_data["profesional"]["nombre"] = value
+                        case "MATRICULA:":
+                            extracted_data["profesional"]["matricula"] = value
+                        case "ESPECIALIDAD:":
+                            extracted_data["profesional"]["especialidad"] = value
+
+            for table in page.tables:
+                header_cells = [cell.text.strip() for cell in table.rows[0].cells]
+
+                header_indexes = {header: header_cells.index(header) for header in headers if header in header_cells}
+
+                for row in table.rows[1:]:
+                    row_data = {
+                        "fecha": None,
+                        "hora_entrada": None,
+                        "hora_salida": None
+                    }
+                    
+                    if "FECHA"  in header_indexes:
+                        row_data["fecha"] = row.cells[header_indexes["FECHA"]].text.strip()
+                    if "ENTRADA" in header_indexes:
+                        row_data["hora_entrada"] = row.cells[header_indexes["ENTRADA"]].text.strip()
+                    if "HORA" in header_indexes:
+                        row_data["hora_entrada"] = row.cells[header_indexes["HORA"]].text.strip()
+                    if "SALIDA" in header_indexes:
+                        row_data["hora_salida"] = row.cells[header_indexes["SALIDA"]].text.strip()
+
+                    extracted_data["planilla"].append(row_data)
+
+        return extracted_data

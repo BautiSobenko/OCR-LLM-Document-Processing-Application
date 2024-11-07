@@ -1,4 +1,4 @@
-#!C:\Users\juans\OneDrive\Escritorio\consultora\env\Scripts\python.exe
+#!C:\Users\bauti\Documents\AWS-Textract\OCR-Document-Processing-Application\env\Scripts\python.exe
 
 import sys
 import json

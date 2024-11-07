@@ -4,6 +4,8 @@ from werkzeug.utils import secure_filename
 import os
 from aws_facade import AWSFacade
 from commands import SubirArchivoCommand, AnalizarDocumentoCommand
+from LLM import LLM
+import json
 
 app = Flask(__name__)
 UPLOAD_FOLDER = '/content/uploads'
@@ -44,8 +46,15 @@ def upload_file():
     analizar_command = AnalizarDocumentoCommand(aws_facade, filename)
     parsed_response = analizar_command.ejecutar()
 
-    # Devolver la respuesta procesada
-    return jsonify(parsed_response)
+    with open('OCRSystem\ocr_result.txt', 'w') as ocr_result_file:
+        parsed_response_str = json.dumps(parsed_response, indent=4)
+        ocr_result_file.write(parsed_response_str)
+
+    language_model = LLM()
+
+    json_fixed = language_model.correctJson()
+
+    return jsonify(json_fixed)
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(port=3636)
