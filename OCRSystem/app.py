@@ -1,54 +1,57 @@
-# app.py
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
 from aws_facade import AWSFacade
 from commands import SubirArchivoCommand, AnalizarDocumentoCommand
 from LLM import LLM
 import json
+from flask_cors import CORS
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'  # Cambia el directorio si es necesario
+CORS(app)  # Habilita CORS para todas las rutas
+
+UPLOAD_FOLDER = 'uploads'  # Asegúrate de que el directorio exista
+ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}  # Extensiones permitidas
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Ensure upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-@app.route('/')
-def upload_form():
-    return render_template('upload_form.html')
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    # Verifica si se envió un archivo
     if 'file' not in request.files:
-        error_message = "No se encontró el archivo en la solicitud."
-        return render_template('upload_form.html', error=error_message)
+        return jsonify({"error": "No se encontró el archivo en la solicitud."}), 400
     file = request.files['file']
     if file.filename == '':
-        error_message = "No se seleccionó ningún archivo."
-        return render_template('upload_form.html', error=error_message)
+        return jsonify({"error": "No se seleccionó ningún archivo."}), 400
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
 
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
+        # Procesa el archivo (aquí puedes llamar a tus comandos y lógica de negocio)
+        aws_facade = AWSFacade()
+        subir_command = SubirArchivoCommand(aws_facade, filepath, filename)
+        subir_command.ejecutar()
 
-    # Usar AWSFacade y Command
-    aws_facade = AWSFacade()
-    subir_command = SubirArchivoCommand(aws_facade, filepath, filename)
-    subir_command.ejecutar()
+        analizar_command = AnalizarDocumentoCommand(aws_facade, filename)
+        parsed_response = analizar_command.ejecutar()
 
-    analizar_command = AnalizarDocumentoCommand(aws_facade, filename)
-    parsed_response = analizar_command.ejecutar()
+        with open('OCRSystem/ocr_result.txt', 'w') as ocr_result_file:
+            parsed_response_str = json.dumps(parsed_response, indent=4)
+            ocr_result_file.write(parsed_response_str)
 
-    with open('OCRSystem/ocr_result.txt', 'w', encoding="utf-8") as ocr_result_file:
-        parsed_response_str = json.dumps(parsed_response, indent=4)
-        ocr_result_file.write(parsed_response_str)
+        language_model = LLM()
+        json_fixed = language_model.correctJson()
 
-    language_model = LLM()
-    json_fixed = language_model.correctJson()
-
-    # Renderizar el resultado en una página HTML
-    return render_template('result.html', result=json_fixed)
+        return jsonify(json_fixed), 200
+    else:
+        return jsonify({"error": "Tipo de archivo no permitido."}), 400
 
 if __name__ == "__main__":
     app.run(port=3636, debug=True)
