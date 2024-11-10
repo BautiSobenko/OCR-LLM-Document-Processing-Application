@@ -1,8 +1,9 @@
+import os
 def analyzeDocument(textract_client, file_path):
     return textract_client.analyze_document(
         Document={
             'S3Object': {
-                'Bucket': 'myawsbucketocrrecognition',
+                'Bucket': os.getenv('BUCKET_NAME'),
                 'Name': file_path
             }
         },
