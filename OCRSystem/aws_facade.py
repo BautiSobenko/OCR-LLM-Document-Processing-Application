@@ -1,5 +1,6 @@
 # aws_facade.py
 import boto3
+import trp
 from utils import analyzeDocument
 from parsers import TextractParser
 import os
@@ -27,7 +28,12 @@ class AWSFacade:
     def upload_document(self, filepath, filename):
         self.s3_client.upload_file(filepath, BUCKET_NAME, filename)
 
+    # def analyze_document(self, filename):
+    #     response = analyzeDocument(self.textract_client, filename)
+    #     parsed_result = self.parser.parse(response)
+    #     return parsed_result
+    
     def analyze_document(self, filename):
-        response = analyzeDocument(self.textract_client, filename)
-        parsed_result = self.parser.parse(response)
-        return parsed_result
+            response = analyzeDocument(self.textract_client, filename)
+            parsed_result = self.parser.parse(response)
+            return parsed_result

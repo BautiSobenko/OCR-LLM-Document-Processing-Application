@@ -1,0 +1,10 @@
+<!-- templates/result.html -->
+{% extends "layout.html" %}
+
+{% block title %}Resultado{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Resultado del Procesamiento</h1>
+<pre>{{ result | tojson(indent=4) }}</pre>
+<a href="{{ url_for('upload_form') }}" class="btn btn-secondary mt-3 mb-3">Procesar otro archivo</a>
+{% endblock %}

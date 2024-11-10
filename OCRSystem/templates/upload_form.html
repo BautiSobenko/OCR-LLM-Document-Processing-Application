@@ -1,0 +1,36 @@
+<!-- templates/upload_form.html -->
+{% extends "layout.html" %}
+
+{% block title %}Subir Documento - Mops Co.{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <header class="mb-4">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light rounded shadow-sm p-3">
+            <div class="container-fluid">
+                <a class="navbar-brand fw-bold" href="/">Mops Co.</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+            </div>
+        </nav>
+    </header>
+
+    <main class="card p-4 shadow-sm">
+        <h1 class="mb-4 text-center">Subir un Documento</h1>
+        {% if error %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endif %}
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('upload_file') }}">
+            <div class="mb-3">
+                <label for="formFile" class="form-label">Selecciona un archivo</label>
+                <input class="form-control" type="file" name="file" id="formFile" required>
+            </div>
+            <button type="submit" class="btn btn-primary ">Subir</button>
+        </form>
+    </main>
+</div>
+{% endblock %}

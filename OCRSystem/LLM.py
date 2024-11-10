@@ -1,6 +1,7 @@
 from groq import Groq
 import os
 import json
+import re
 
 class LLM:
     def __init__(self):
@@ -15,40 +16,53 @@ class LLM:
         completion = self.client.chat.completions.create(
             model="llama3-70b-8192",
             messages = [
-            {
-                "role": "user",
-                "content": """Corrige el siguiente JSON: """ + ocr_json + """ en función de los valores y nombres de los atributos de cada campo. Ten en cuenta las siguientes reglas y el contexto de cada campo:
-                
-                        1. **Ajuste de valores por tipo de dato**: Los valores deben respetar el sentido y el tipo de dato de acuerdo con el nombre del atributo:
-                            - Para cualquier atributo con `null`, no agregues ni inventes datos; mantén el valor `null` sin cambios.
-                            - Si algun valor en hora_entrada o hora_salida termina en hs, horas, h, hr, o algun otro valor que indique horas, elimina ese valor y deja solo la hora, por ejemplo: 22hs -> 22:00
-                            - Si el atributo es `hora_entrada` o `hora_salida`, asegúrate de que los valores sigan un formato de 24 horas (`hh:mm`) y que no incluyan caracteres o valores fuera de lo común, como letras o símbolos. Estos valores deben ser coherentes como horas.
-                            - Si el atributo es `fecha`, utiliza el formato `dd-mm-aaaa` para todas las fechas.
-                            - Si el atributo es `hora_entrada` o `hora_salida', y en caso de encontrar un valor con un caracter, cambialo por el numero de mayor similitud, aquel que tenga la forma mas parecida y cercana al caracter. por ejemplo: 0B:00 -> 08:00, BHS -> 08:00, BHP -> 08:00, 0S:00 -> 05:00
-                            - Si el atributo es `domicilio` o `localidad`, asegúrate de que los valores sean coherentes con direcciones o nombres de lugares pertenecientes a una localidad o domicilio real de la Argentina.
+                {
+                    "role": "user",
+                    "content": f"""Corrige el siguiente JSON y devuelve únicamente el JSON corregido sin explicaciones ni texto adicional: {ocr_json}
 
-                                
-                        2. **Mantener contexto y sentido de los campos**: Corrige valores incorrectos solo en función de su campo y asegúrate de que el JSON refleje el contexto de una planilla de asistencia y registro de horarios de entrada y salida. Los valores deben tener sentido en este contexto. No alteres el contenido de atributos como nombres o direcciones, pero corrige los errores en los valores relacionados con horas o fechas, si existen.
+                    Formato y Precisión de Datos:
 
-                        Proporciona el JSON corregido siguiendo los requerimientos mencionados anteriormente.
-                        """
-            }
+                    - Si el valor en hora_entrada o hora_salida contiene elementos como "hs", "horas", "h", "hr", u otros indicadores de tiempo, elimina estos caracteres y deja solo la hora en formato hh:mm.
+                    - Si el valor de hora_entrada o hora_salida contiene algún carácter incorrecto o de difícil interpretación (por ejemplo, 0B:00), reemplázalo por el número de mayor similitud (08:00 en el caso de 0B:00).
+                    - Si hora_entrada o hora_salida tiene solo dos dígitos (ej., 22), agrégale :00 para que tenga el formato hh:mm (por ejemplo, 22 -> 22:00).
+                    - Si el valor de fecha no está en formato dd-mm-aaaa, corrígelo. Si incluye caracteres incorrectos, reemplázalos por el número de mayor similitud (ejemplo: 7-P-24 -> 7-9-24).
+                    - Si el valor en fecha, hora_entrada, o hora_salida contiene texto sin relación con una fecha u hora, cambia el valor a null.
+
+                    Mantener Contexto:
+
+                    - Respeta los nombres, direcciones y localidades sin alterarlos, pero asegúrate de que las horas y fechas sean consistentes con el contexto de una planilla de asistencia.
+                    - Si el atributo es domicilio o localidad, asegúrate de que los valores sean coherentes con direcciones o nombres de lugares pertenecientes a una localidad o domicilio real de la Argentina.
+
+                    - No agregues valores inventados en campos con null. Mantén el valor null sin cambios.
+
+                    Proporciona **únicamente** el JSON corregido siguiendo los requerimientos mencionados anteriormente, sin añadir texto adicional. No incluyas backticks, etiquetas de código, ni comentarios.
+                    """
+                }
             ],
             temperature=0,
-            max_tokens=1024,
+            max_tokens=2048,
             top_p=1,
             stream=False,
-            response_format={"type": "json_object"},
             stop=None,
         )
 
-        corrected_json = json.loads(completion.choices[0].message.content)
-        return corrected_json
+        response_text = completion.choices[0].message.content
 
+        # Imprimir la respuesta para depuración
+        print("Respuesta del modelo:")
+        print(response_text)
 
+        # Limpiar la respuesta
+        response_text_clean = response_text.strip().strip('`')
+        response_text_clean = response_text_clean.replace('“', '"').replace('”', '"')
 
-
-
-
-
-
+        # Intentar parsear el JSON
+        try:
+            corrected_json = json.loads(response_text_clean)
+            return corrected_json
+        except json.JSONDecodeError as e:
+            print(f"Error al parsear el JSON: {e}")
+            # Imprimir el JSON problemático para inspección
+            print("JSON que causó el error:")
+            print(response_text_clean)
+            return None
