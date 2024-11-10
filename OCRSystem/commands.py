@@ -13,10 +13,14 @@ class SubirArchivoCommand(Command):
     def ejecutar(self):
         self.aws_facade.upload_document(self.filepath, self.filename)
 
-class AnalizarDocumentoCommand(Command):
-    def __init__(self, aws_facade: AWSFacade, filename):
+# commands.py
+class AnalizarDocumentoCommand:
+    def __init__(self, aws_facade, filename):
         self.aws_facade = aws_facade
         self.filename = filename
 
     def ejecutar(self):
-        return self.aws_facade.analyze_document(self.filename)
+        resultado = self.aws_facade.analyze_document(self.filename)
+        self.aws_facade.eliminar_archivo_s3(self.filename)
+        return resultado
+

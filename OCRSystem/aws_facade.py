@@ -32,3 +32,12 @@ class AWSFacade:
             response = analyzeDocument(self.textract_client, filename)
             parsed_result = self.parser.parse(response)
             return parsed_result
+
+    def eliminar_archivo_s3(self, object_name):
+        try:
+            response = self.s3_client.delete_object(Bucket=BUCKET_NAME, Key=object_name)
+            print(f"Archivo '{object_name}' eliminado del bucket '{BUCKET_NAME}'.")
+            return True
+        except Exception as e:
+            print(f"Error al eliminar el archivo '{object_name}': {e}")
+            return False
