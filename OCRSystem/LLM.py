@@ -1,9 +1,9 @@
 from groq import Groq
 import os
 import json
-import re
 
 class LLM:
+    
     def __init__(self):
         self.client = Groq(
             api_key=os.environ.get("GROQ_API_KEY"),
@@ -32,7 +32,7 @@ class LLM:
 
                     - Respeta los nombres, direcciones y localidades sin alterarlos, pero asegúrate de que las horas y fechas sean consistentes con el contexto de una planilla de asistencia.
                     - Si el atributo es domicilio o localidad, asegúrate de que los valores sean coherentes con direcciones o nombres de lugares pertenecientes a una localidad o domicilio real de la Argentina.
-
+                    - Si el atributo es nombre en caso de encontrar nombres ilogicos o que no correspondan a nombres coherentes de personas, adaptarlo al de mayor similitud. Ejemplo "Aerot Robert" -> Araoz Roberto
                     - No agregues valores inventados en campos con null. Mantén el valor null sin cambios.
 
                     Proporciona **únicamente** el JSON corregido siguiendo los requerimientos mencionados anteriormente, sin añadir texto adicional. No incluyas backticks, etiquetas de código, ni comentarios.
@@ -48,21 +48,17 @@ class LLM:
 
         response_text = completion.choices[0].message.content
 
-        # Imprimir la respuesta para depuración
         print("Respuesta del modelo:")
         print(response_text)
 
-        # Limpiar la respuesta
         response_text_clean = response_text.strip().strip('`')
         response_text_clean = response_text_clean.replace('“', '"').replace('”', '"')
 
-        # Intentar parsear el JSON
         try:
             corrected_json = json.loads(response_text_clean)
             return corrected_json
         except json.JSONDecodeError as e:
             print(f"Error al parsear el JSON: {e}")
-            # Imprimir el JSON problemático para inspección
             print("JSON que causó el error:")
             print(response_text_clean)
             return None

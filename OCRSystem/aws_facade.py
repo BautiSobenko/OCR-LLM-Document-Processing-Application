@@ -1,6 +1,4 @@
-# aws_facade.py
 import boto3
-import trp
 from utils import analyzeDocument
 from parsers import TextractParser
 import os

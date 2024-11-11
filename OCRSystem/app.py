@@ -8,13 +8,12 @@ import json
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Habilita CORS para todas las rutas
+CORS(app)  
 
-UPLOAD_FOLDER = 'uploads'  # Asegúrate de que el directorio exista
-ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}  # Extensiones permitidas
+UPLOAD_FOLDER = 'uploads'  
+ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'} 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Ensure upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
@@ -23,7 +22,6 @@ def allowed_file(filename):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    # Verifica si se envió un archivo
     if 'file' not in request.files:
         return jsonify({"error": "No se encontró el archivo en la solicitud."}), 400
     file = request.files['file']
@@ -34,7 +32,6 @@ def upload_file():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
 
-        # Procesa el archivo (aquí puedes llamar a tus comandos y lógica de negocio)
         aws_facade = AWSFacade()
         subir_command = SubirArchivoCommand(aws_facade, filepath, filename)
         subir_command.ejecutar()
@@ -48,6 +45,11 @@ def upload_file():
 
         language_model = LLM()
         json_fixed = language_model.correctJson()
+
+        try:
+            os.remove(filepath)
+        except Exception as e:
+            print(f"Error al eliminar el archivo '{filepath}': {e}")
 
         return jsonify(json_fixed), 200
     else:

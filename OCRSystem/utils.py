@@ -1,4 +1,5 @@
 import os
+
 def analyzeDocument(textract_client, file_path):
     return textract_client.analyze_document(
         Document={
