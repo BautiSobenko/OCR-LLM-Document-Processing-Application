@@ -56,4 +56,4 @@ def upload_file():
         return jsonify({"error": "Tipo de archivo no permitido."}), 400
 
 if __name__ == "__main__":
-    app.run(port=3636, debug=True)
+    app.run(port=os.getenv('PORT'), debug=True)
