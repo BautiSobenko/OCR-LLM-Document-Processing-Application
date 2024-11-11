@@ -3,16 +3,15 @@ import os
 import json
 
 class LLM:
-    
     def __init__(self):
         self.client = Groq(
             api_key=os.environ.get("GROQ_API_KEY"),
         )
 
-    def correctJson(self):
-        with open('OCRSystem\ocr_result.txt', 'r') as ocr_result_file:
-            ocr_json = ocr_result_file.read()
-            
+    def correctJson(self, ocr_json_str):
+        # Ya no necesitamos leer desde un archivo, usamos ocr_json_str directamente
+        ocr_json = ocr_json_str  # Asignamos el parámetro a una variable local si lo deseas
+
         completion = self.client.chat.completions.create(
             model="llama3-70b-8192",
             messages = [
@@ -32,7 +31,7 @@ class LLM:
 
                     - Respeta los nombres, direcciones y localidades sin alterarlos, pero asegúrate de que las horas y fechas sean consistentes con el contexto de una planilla de asistencia.
                     - Si el atributo es domicilio o localidad, asegúrate de que los valores sean coherentes con direcciones o nombres de lugares pertenecientes a una localidad o domicilio real de la Argentina.
-                    - Si el atributo es nombre en caso de encontrar nombres ilogicos o que no correspondan a nombres coherentes de personas, adaptarlo al de mayor similitud. Ejemplo "Aerot Robert" -> Araoz Roberto
+                    - Si el atributo es nombre y encuentras nombres ilógicos o que no correspondan a nombres coherentes de personas, adáptalo al de mayor similitud. Ejemplo "Aerot Robert" -> "Araoz Roberto".
                     - No agregues valores inventados en campos con null. Mantén el valor null sin cambios.
 
                     Proporciona **únicamente** el JSON corregido siguiendo los requerimientos mencionados anteriormente, sin añadir texto adicional. No incluyas backticks, etiquetas de código, ni comentarios.
@@ -51,6 +50,7 @@ class LLM:
         print("Respuesta del modelo:")
         print(response_text)
 
+        # Limpiamos la respuesta para asegurarnos de que sea un JSON válido
         response_text_clean = response_text.strip().strip('`')
         response_text_clean = response_text_clean.replace('“', '"').replace('”', '"')
 

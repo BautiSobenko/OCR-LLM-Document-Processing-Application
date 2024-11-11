@@ -6,13 +6,12 @@ from commands import SubirArchivoCommand, AnalizarDocumentoCommand
 from LLM import LLM
 import json
 from flask_cors import CORS
-import traceback
 
 app = Flask(__name__)
-CORS(app)  
+CORS(app)
 
-UPLOAD_FOLDER = 'uploads'  
-ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'} 
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -41,14 +40,14 @@ def upload_file():
             analizar_command = AnalizarDocumentoCommand(aws_facade, filename)
             parsed_response = analizar_command.ejecutar()
 
-            with open('OCRSystem/ocr_result.txt', 'w') as ocr_result_file:
-                parsed_response_str = json.dumps(parsed_response, indent=4)
-                ocr_result_file.write(parsed_response_str)
+            
+            parsed_response_str = json.dumps(parsed_response, indent=4)
 
             language_model = LLM()
-            json_fixed = language_model.correctJson()
+            
+            json_fixed = language_model.correctJson(parsed_response_str)
 
-            # Eliminar el archivo después del procesamiento
+            
             try:
                 os.remove(filepath)
                 print(f"Archivo '{filepath}' eliminado exitosamente.")
@@ -60,6 +59,7 @@ def upload_file():
             return jsonify({"error": "Tipo de archivo no permitido."}), 400
     except Exception as e:
         print(f"Error en el endpoint /upload: {e}")
+        import traceback
         traceback.print_exc()
         return jsonify({"error": "Error interno del servidor."}), 500
 
