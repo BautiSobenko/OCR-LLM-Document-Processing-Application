@@ -6,6 +6,7 @@ from commands import SubirArchivoCommand, AnalizarDocumentoCommand
 from LLM import LLM
 import json
 from flask_cors import CORS
+import traceback
 
 app = Flask(__name__)
 CORS(app)  
@@ -22,38 +23,45 @@ def allowed_file(filename):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No se encontró el archivo en la solicitud."}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No se seleccionó ningún archivo."}), 400
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No se encontró el archivo en la solicitud."}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "No se seleccionó ningún archivo."}), 400
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
 
-        aws_facade = AWSFacade()
-        subir_command = SubirArchivoCommand(aws_facade, filepath, filename)
-        subir_command.ejecutar()
+            aws_facade = AWSFacade()
+            subir_command = SubirArchivoCommand(aws_facade, filepath, filename)
+            subir_command.ejecutar()
 
-        analizar_command = AnalizarDocumentoCommand(aws_facade, filename)
-        parsed_response = analizar_command.ejecutar()
+            analizar_command = AnalizarDocumentoCommand(aws_facade, filename)
+            parsed_response = analizar_command.ejecutar()
 
-        with open('OCRSystem/ocr_result.txt', 'w') as ocr_result_file:
-            parsed_response_str = json.dumps(parsed_response, indent=4)
-            ocr_result_file.write(parsed_response_str)
+            with open('OCRSystem/ocr_result.txt', 'w') as ocr_result_file:
+                parsed_response_str = json.dumps(parsed_response, indent=4)
+                ocr_result_file.write(parsed_response_str)
 
-        language_model = LLM()
-        json_fixed = language_model.correctJson()
+            language_model = LLM()
+            json_fixed = language_model.correctJson()
 
-        try:
-            os.remove(filepath)
-        except Exception as e:
-            print(f"Error al eliminar el archivo '{filepath}': {e}")
+            # Eliminar el archivo después del procesamiento
+            try:
+                os.remove(filepath)
+                print(f"Archivo '{filepath}' eliminado exitosamente.")
+            except Exception as e:
+                print(f"Error al eliminar el archivo '{filepath}': {e}")
 
-        return jsonify(json_fixed), 200
-    else:
-        return jsonify({"error": "Tipo de archivo no permitido."}), 400
+            return jsonify(json_fixed), 200
+        else:
+            return jsonify({"error": "Tipo de archivo no permitido."}), 400
+    except Exception as e:
+        print(f"Error en el endpoint /upload: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Error interno del servidor."}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
