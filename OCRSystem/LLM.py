@@ -63,7 +63,6 @@ class LLM:
             stream=False,
             stop=None,
         )
-
         response_text = completion.choices[0].message.content
         print("Respuesta del modelo:")
         print(response_text)
@@ -72,6 +71,10 @@ class LLM:
         response_text_clean = response_text.strip().strip('`')
         response_text_clean = response_text_clean.replace('“', '"').replace('”', '"')
 
+        # Si la cadena comienza con "json", lo removemos
+        if response_text_clean.startswith("json"):
+            response_text_clean = response_text_clean[4:].strip()
+
         corrected_json = None
         try:
             corrected_json = json.loads(response_text_clean)
@@ -79,8 +82,8 @@ class LLM:
             print(f"Error al parsear el JSON: {e}")
             print("JSON que causó el error:")
             print(response_text_clean)
-        
-        # Terminamos el contador
+
+        # Terminamos el contador (NO MODIFICAR)
         end_time = time.perf_counter()
         print(f"Tiempo transcurrido en correctJson: {end_time - start_time:.4f} segundos")
 
