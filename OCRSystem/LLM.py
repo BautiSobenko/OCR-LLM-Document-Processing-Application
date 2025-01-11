@@ -1,6 +1,7 @@
 from groq import Groq
 import os
 import json
+import time
 
 class LLM:
     def __init__(self):
@@ -9,32 +10,50 @@ class LLM:
         )
 
     def correctJson(self, ocr_json_str):
-        # Ya no necesitamos leer desde un archivo, usamos ocr_json_str directamente
-        ocr_json = ocr_json_str  # Asignamos el parámetro a una variable local si lo deseas
+        # Iniciamos el contador
+        start_time = time.perf_counter()
 
         completion = self.client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-specdec",
             messages = [
                 {
                     "role": "user",
-                    "content": f"""Corrige el siguiente JSON y devuelve únicamente el JSON corregido sin explicaciones ni texto adicional: {ocr_json}
+                    "content": f"""Corrige exclusivamente el siguiente JSON y devuelve **solo** el JSON final, sin texto adicional ni explicaciones:
 
-                    Formato y Precisión de Datos:
+                    {ocr_json_str}
 
-                    - Si el valor en hora_entrada o hora_salida contiene elementos como "hs", "horas", "h", "hr", u otros indicadores de tiempo, elimina estos caracteres y deja solo la hora en formato hh:mm.
-                    - Si el valor de hora_entrada o hora_salida contiene algún carácter incorrecto o de difícil interpretación (por ejemplo, 0B:00), reemplázalo por el número de mayor similitud (08:00 en el caso de 0B:00).
-                    - Si hora_entrada o hora_salida tiene solo dos dígitos (ej., 22), agrégale :00 para que tenga el formato hh:mm (por ejemplo, 22 -> 22:00).
-                    - Si el valor de fecha no está en formato dd-mm-aaaa, corrígelo. Si incluye caracteres incorrectos, reemplázalos por el número de mayor similitud (ejemplo: 7-P-24 -> 7-9-24).
-                    - Si el valor en fecha, hora_entrada, o hora_salida contiene texto sin relación con una fecha u hora, cambia el valor a null.
+                    ### Instrucciones:
 
-                    Mantener Contexto:
+                    1. **Fechas (dd-mm-aaaa)**:
+                    - Corrige cualquier formato inválido o caracteres extraños (p. ej. "7-P-24" → "7-9-24").
+                    - Si una fecha no puede interpretarse, cámbiala a null.
+                    - Las fechas deben ser coherentes y lineales (sin retroceder o cambiar a un año previo).  
+                        Si la fecha previa es "7-9-24", no puede venir después "4-5-24" en la misma secuencia. Corrige o pon null si no hay forma de deducirla.
+                    - El año que mas encuentres es el predominante. Todos los registros deberian ajustarse a este año predominante.
 
-                    - Respeta los nombres, direcciones y localidades sin alterarlos, pero asegúrate de que las horas y fechas sean consistentes con el contexto de una planilla de asistencia.
-                    - Si el atributo es domicilio o localidad, asegúrate de que los valores sean coherentes con direcciones o nombres de lugares pertenecientes a una localidad o domicilio real de la Argentina.
-                    - Si el atributo es nombre y encuentras nombres ilógicos o que no correspondan a nombres coherentes de personas, adáptalo al de mayor similitud. Ejemplo "Aerot Robert" -> "Araoz Roberto".
-                    - No agregues valores inventados en campos con null. Mantén el valor null sin cambios.
+                    2. **Horas (hora_entrada, hora_salida)**:
+                    - Elimina “hs”, “horas”, “h”, “hr” y ajusta al formato 24 horas (hh:mm).
+                    - Si solo hay dos dígitos (“22”), agrégales “:00” → “22:00”.
+                    - Si hay caracteres ambiguos (“0B:00”), reemplázalos por la cifra más parecida (“08:00”).
+                    - Si no se puede determinar la hora, cámbiala a null.
+                    - Si no hay horario de salida pon NULL
 
-                    Proporciona **únicamente** el JSON corregido siguiendo los requerimientos mencionados anteriormente, sin añadir texto adicional. No incluyas backticks, etiquetas de código, ni comentarios.
+                    3. **Coherencia de turnos**:
+                    - En toda la planilla suelen usarse **los mismos dos horarios** de entrada y salida (p. ej. 22:00 a 10:00, 20:00 a 08:00, etc.).  
+                    - Si ves algo incompatible como “22:00 a 07:00” pero la planilla establece que se sale a “10:00”, corrígelo a “22:00 a 10:00”.  
+                    - Mantén esta lógica flexible; si en otra planilla los horarios fueran 20:00 y 08:00, aplica el mismo criterio (cualquier combinación que no encaje con los dos horarios reales, corrígela al más probable).
+
+                    4. **Nombres, domicilios y localidades**:
+                    - Respeta el texto salvo por errores evidentes (p. ej. “Aerot Robert” → “Araoz Roberto”).
+                    - Si “domicilio” o “localidad” lucen imposibles, haz ajustes mínimos para mantener coherencia con ubicaciones argentinas o déjalo en null si es irreparable.
+
+                    5. **Valores null**:
+                    - No inventes nada en campos ya marcados como null; mantén null sin alterarlo.
+                    - Si un campo no se puede interpretar conforme a su categoría (fecha/hora/nombre/etc.), ponlo en null.
+
+                    **No incluyas** texto adicional, explicaciones o backticks. Devuelve **exclusivamente** el JSON corregido.
+
+
                     """
                 }
             ],
@@ -46,7 +65,6 @@ class LLM:
         )
 
         response_text = completion.choices[0].message.content
-
         print("Respuesta del modelo:")
         print(response_text)
 
@@ -54,11 +72,17 @@ class LLM:
         response_text_clean = response_text.strip().strip('`')
         response_text_clean = response_text_clean.replace('“', '"').replace('”', '"')
 
+        corrected_json = None
         try:
             corrected_json = json.loads(response_text_clean)
-            return corrected_json
         except json.JSONDecodeError as e:
             print(f"Error al parsear el JSON: {e}")
             print("JSON que causó el error:")
             print(response_text_clean)
-            return None
+        
+        # Terminamos el contador
+        end_time = time.perf_counter()
+        print(f"Tiempo transcurrido en correctJson: {end_time - start_time:.4f} segundos")
+
+        return corrected_json
+

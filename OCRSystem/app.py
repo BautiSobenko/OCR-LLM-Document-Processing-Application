@@ -6,6 +6,7 @@ from commands import SubirArchivoCommand, AnalizarDocumentoCommand
 from LLM import LLM
 import json
 from flask_cors import CORS
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -22,12 +23,16 @@ def allowed_file(filename):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    start_time = time.perf_counter()
     try:
+        print("hola")
         if 'file' not in request.files:
             return jsonify({"error": "No se encontró el archivo en la solicitud."}), 400
+
         file = request.files['file']
         if file.filename == '':
             return jsonify({"error": "No se seleccionó ningún archivo."}), 400
+
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -40,14 +45,12 @@ def upload_file():
             analizar_command = AnalizarDocumentoCommand(aws_facade, filename)
             parsed_response = analizar_command.ejecutar()
 
-            
             parsed_response_str = json.dumps(parsed_response, indent=4)
-
+            end_time = time.perf_counter()
+            print(f"Tiempo transcurrido en upload_file: {end_time - start_time:.4f} segundos")
             language_model = LLM()
-            
             json_fixed = language_model.correctJson(parsed_response_str)
 
-            
             try:
                 os.remove(filepath)
                 print(f"Archivo '{filepath}' eliminado exitosamente.")
@@ -57,11 +60,14 @@ def upload_file():
             return jsonify(json_fixed), 200
         else:
             return jsonify({"error": "Tipo de archivo no permitido."}), 400
+
     except Exception as e:
         print(f"Error en el endpoint /upload: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Error interno del servidor."}), 500
+
+
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
